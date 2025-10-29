@@ -7,8 +7,6 @@ license.workspace = true
 [dependencies]
 bevy = { workspace = true }
 bevy_editor_core = { workspace = true }
-bevy_editor_ui = { workspace = true }
-bevy_editor_undo = { workspace = true }
 
 [lints]
 workspace = true

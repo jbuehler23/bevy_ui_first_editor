@@ -1,7 +1,8 @@
 //! Tree view UI for entity hierarchy
 
 use bevy::prelude::*;
-use bevy::utils::HashSet;
+use bevy_editor_core::EditorEntity;
+use std::collections::HashSet;
 
 /// Resource tracking the state of the hierarchy panel UI
 #[derive(Resource, Default)]
@@ -10,6 +11,8 @@ pub struct HierarchyState {
     pub expanded: HashSet<Entity>,
     /// Entity whose context menu is open (if any)
     pub context_menu_open: Option<Entity>,
+    /// Current search filter text (empty string = no filter)
+    pub search_filter: String,
 }
 
 /// Component marking a UI node that represents an entity in the hierarchy tree
@@ -31,20 +34,56 @@ pub struct TreeEntity {
     pub parent: Option<Entity>,
 }
 
+/// Infer a descriptive name for an entity based on its components
+fn infer_entity_name(world: &World, entity: Entity) -> String {
+    let entity_ref = world.entity(entity);
+
+    // Try to identify the entity by common component types
+    if entity_ref.contains::<Camera2d>() || entity_ref.contains::<Camera3d>() {
+        return format!("Camera ({})", entity.index());
+    }
+    if entity_ref.contains::<Window>() {
+        return format!("Window ({})", entity.index());
+    }
+    if entity_ref.contains::<Node>() {
+        return format!("UI Node ({})", entity.index());
+    }
+    if entity_ref.contains::<DirectionalLight>() {
+        return format!("Light ({})", entity.index());
+    }
+    if entity_ref.contains::<Mesh3d>() {
+        return format!("Mesh ({})", entity.index());
+    }
+
+    // Fallback to just the entity ID
+    format!("Entity ({})", entity.index())
+}
+
 /// Build a flattened list of entities for rendering, respecting expand/collapse state
 pub fn build_entity_tree_flat(
     world: &World,
     hierarchy_state: &HierarchyState,
+    all_entities_query: &[(Entity, Option<String>)],
 ) -> Vec<TreeEntity> {
     let mut result = Vec::new();
 
-    // Find all root entities (entities without parents)
-    let mut root_entities: Vec<(Entity, String)> = world
-        .query_filtered::<(Entity, Option<&Name>), Without<Parent>>()
-        .iter(world)
+    // Filter for root entities (entities without parents) and exclude editor entities
+    let search_filter_lower = hierarchy_state.search_filter.to_lowercase();
+    let has_search = !search_filter_lower.is_empty();
+
+    let mut root_entities: Vec<(Entity, String)> = all_entities_query
+        .iter()
+        .filter(|(entity, _)| {
+            // Must not have a parent AND must not be an editor entity
+            world.get::<ChildOf>(*entity).is_none() && world.get::<EditorEntity>(*entity).is_none()
+        })
         .map(|(entity, name)| {
-            let name_str = name.map(|n| n.as_str()).unwrap_or("Unnamed");
-            (entity, name_str.to_string())
+            let display_name = name.clone().unwrap_or_else(|| infer_entity_name(world, *entity));
+            (*entity, display_name)
+        })
+        .filter(|(_, name)| {
+            // Apply search filter if active
+            !has_search || name.to_lowercase().contains(&search_filter_lower)
         })
         .collect();
 
@@ -61,6 +100,8 @@ pub fn build_entity_tree_flat(
             root_name,
             0,
             None,
+            &search_filter_lower,
+            has_search,
         );
     }
 
@@ -76,6 +117,8 @@ fn add_entity_and_children(
     name: String,
     depth: usize,
     parent: Option<Entity>,
+    search_filter_lower: &str,
+    has_search: bool,
 ) {
     // Check if this entity has children
     let children = world.get::<Children>(entity);
@@ -95,13 +138,18 @@ fn add_entity_and_children(
         if let Some(children) = children {
             let mut child_data: Vec<(Entity, String)> = children
                 .iter()
-                .map(|&child_entity| {
+                // Filter out editor entities from children
+                .filter(|child_entity| world.get::<EditorEntity>(*child_entity).is_none())
+                .map(|child_entity| {
                     let child_name = world
                         .get::<Name>(child_entity)
-                        .map(|n| n.as_str())
-                        .unwrap_or("Unnamed")
-                        .to_string();
+                        .map(|n| n.as_str().to_string())
+                        .unwrap_or_else(|| infer_entity_name(world, child_entity));
                     (child_entity, child_name)
+                })
+                .filter(|(_, name)| {
+                    // Apply search filter to children too
+                    !has_search || name.to_lowercase().contains(&search_filter_lower)
                 })
                 .collect();
 
@@ -117,6 +165,8 @@ fn add_entity_and_children(
                     child_name,
                     depth + 1,
                     Some(entity),
+                    search_filter_lower,
+                    has_search,
                 );
             }
         }

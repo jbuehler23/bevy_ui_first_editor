@@ -661,8 +661,6 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_editor_core",
- "bevy_editor_ui",
- "bevy_editor_undo",
 ]
 
 [[package]]
@@ -692,6 +690,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_editor_core",
+ "bevy_editor_hierarchy",
  "serde",
 ]
 

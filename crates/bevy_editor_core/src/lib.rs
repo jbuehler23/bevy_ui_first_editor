@@ -14,6 +14,11 @@ pub mod selection;
 pub use editor_state::*;
 pub use selection::*;
 
+/// Marker component for entities that are part of the editor infrastructure
+/// These entities should not appear in the scene tree or be saved with the scene
+#[derive(Component, Default, Clone, Copy)]
+pub struct EditorEntity;
+
 /// Core editor plugin that sets up the fundamental editor infrastructure
 pub struct EditorCorePlugin;
 

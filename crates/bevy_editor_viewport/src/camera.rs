@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy_editor_core::EditorEntity;
 
 /// Marker component for the editor camera
 #[derive(Component)]
@@ -59,6 +60,8 @@ fn spawn_editor_camera(mut commands: Commands) {
         Camera3d::default(),
         Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         EditorCamera::default(),
+        EditorEntity, // Mark as editor entity
+        Name::new("Editor Camera"), // Give it a name for debugging
     ));
 }
 
