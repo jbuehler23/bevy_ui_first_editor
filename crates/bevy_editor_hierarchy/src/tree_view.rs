@@ -13,6 +13,12 @@ pub struct HierarchyState {
     pub context_menu_open: Option<Entity>,
     /// Current search filter text (empty string = no filter)
     pub search_filter: String,
+    /// Last selected entity (anchor point for range selection)
+    pub selection_anchor: Option<Entity>,
+    /// Entity currently being dragged (for drag-and-drop reparenting)
+    pub dragging: Option<Entity>,
+    /// Entity that the dragged entity is currently hovering over (drop target)
+    pub drop_target: Option<Entity>,
 }
 
 /// Component marking a UI node that represents an entity in the hierarchy tree

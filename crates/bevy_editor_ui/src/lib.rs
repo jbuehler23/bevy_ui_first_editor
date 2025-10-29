@@ -59,6 +59,22 @@ pub struct SearchInputText;
 #[derive(Component)]
 pub struct ClearSearchButton;
 
+/// Marker component for the context menu container
+#[derive(Component)]
+pub struct ContextMenu {
+    /// The entity this context menu is for
+    pub target_entity: Entity,
+}
+
+/// Context menu action types
+#[derive(Component, Clone, Copy)]
+pub enum ContextMenuAction {
+    Delete,
+    Duplicate,
+    AddChild,
+    Rename,
+}
+
 /// Plugin for the native bevy_ui editor UI system
 pub struct EditorUiPlugin;
 
@@ -70,9 +86,16 @@ impl Plugin for EditorUiPlugin {
                 update_docking_layout,
                 handle_panel_resize,
                 handle_tree_row_clicks,
+                handle_tree_row_right_clicks,
+                handle_context_menu_actions,
                 handle_visibility_toggle_clicks,
+                handle_hierarchy_keyboard_navigation,
+                handle_tree_row_drag_start,
+                handle_tree_row_drag_over,
+                handle_tree_row_drop,
                 handle_search_input,
                 handle_clear_search_button,
+                close_context_menu_on_click_outside,
                 update_scene_tree_panel,
                 update_tree_row_visibility_appearance,
             ));
@@ -363,9 +386,239 @@ fn handle_visibility_toggle_clicks(
     }
 }
 
+/// Handle right-clicks on tree rows to show context menu
+fn handle_tree_row_right_clicks(
+    mut commands: Commands,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    tree_row_query: Query<(&Interaction, &EntityTreeRow), With<Button>>,
+    existing_menu_query: Query<Entity, With<ContextMenu>>,
+    windows: Query<&Window>,
+) {
+    if !mouse_button.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    // Close any existing context menu first
+    for menu_entity in &existing_menu_query {
+        commands.entity(menu_entity).despawn();
+    }
+
+    // Check if we right-clicked on a tree row
+    for (interaction, tree_row) in &tree_row_query {
+        if matches!(interaction, Interaction::Hovered | Interaction::Pressed) {
+            // Get cursor position
+            if let Ok(window) = windows.single() {
+                if let Some(cursor_pos) = window.cursor_position() {
+                    // Spawn context menu at cursor position
+                    spawn_context_menu(&mut commands, tree_row.entity, cursor_pos);
+                }
+            }
+            break;
+        }
+    }
+}
+
+/// Spawn a context menu for an entity
+fn spawn_context_menu(commands: &mut Commands, target_entity: Entity, position: Vec2) {
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(position.x),
+                top: Val::Px(position.y),
+                width: Val::Px(150.0),
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(Val::Px(4.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+            BorderColor::all(Color::srgb(0.4, 0.4, 0.4)),
+            ContextMenu { target_entity },
+            EditorEntity,
+            Pickable {
+                should_block_lower: true,
+                is_hoverable: true,
+            },
+        ))
+        .with_children(|menu| {
+            // Delete action
+            menu.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(24.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                ContextMenuAction::Delete,
+                Pickable {
+                    should_block_lower: true,
+                    is_hoverable: true,
+                },
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new("Delete"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            });
+
+            // Duplicate action
+            menu.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(24.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                ContextMenuAction::Duplicate,
+                Pickable {
+                    should_block_lower: true,
+                    is_hoverable: true,
+                },
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new("Duplicate"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            });
+
+            // Add Child action
+            menu.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(24.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                ContextMenuAction::AddChild,
+                Pickable {
+                    should_block_lower: true,
+                    is_hoverable: true,
+                },
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new("Add Child"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            });
+
+            // Rename action
+            menu.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(24.0),
+                    padding: UiRect::all(Val::Px(8.0)),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                ContextMenuAction::Rename,
+                Pickable {
+                    should_block_lower: true,
+                    is_hoverable: true,
+                },
+            ))
+            .with_children(|button| {
+                button.spawn((
+                    Text::new("Rename"),
+                    TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            });
+        });
+}
+
+/// Handle context menu action clicks
+fn handle_context_menu_actions(
+    mut commands: Commands,
+    interaction_query: Query<(&Interaction, &ContextMenuAction, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    menu_query: Query<&ContextMenu>,
+) {
+    for (interaction, action, child_of) in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            // Get the menu to find target entity (parent of the button is the menu)
+            let parent_entity = child_of.parent();
+            if let Ok(menu) = menu_query.get(parent_entity) {
+                let target_entity = menu.target_entity;
+
+                // Execute action based on type
+                match action {
+                    ContextMenuAction::Delete => {
+                        // Despawn the target entity
+                        commands.entity(target_entity).despawn();
+                    }
+                    ContextMenuAction::Duplicate => {
+                        // TODO: Implement duplication
+                        println!("Duplicate entity {:?}", target_entity);
+                    }
+                    ContextMenuAction::AddChild => {
+                        // TODO: Implement add child
+                        println!("Add child to entity {:?}", target_entity);
+                    }
+                    ContextMenuAction::Rename => {
+                        // TODO: Implement rename
+                        println!("Rename entity {:?}", target_entity);
+                    }
+                }
+
+                // Close the context menu after action
+                if menu_query.get(parent_entity).is_ok() {
+                    // Find the menu entity itself (parent of this button)
+                    commands.entity(parent_entity).despawn();
+                }
+            }
+        }
+    }
+}
+
+/// Close context menu when clicking outside of it
+fn close_context_menu_on_click_outside(
+    mut commands: Commands,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    menu_query: Query<(Entity, &Interaction), With<ContextMenu>>,
+) {
+    if mouse_button.just_pressed(MouseButton::Left) {
+        // Check if we clicked outside the menu
+        for (menu_entity, interaction) in &menu_query {
+            if !matches!(interaction, Interaction::Hovered) {
+                commands.entity(menu_entity).despawn();
+            }
+        }
+    }
+}
+
 /// Handle clicks on tree rows for selection and expand/collapse
 fn handle_tree_row_clicks(
     interaction_query: Query<(&Interaction, &EntityTreeRow), (Changed<Interaction>, With<Button>)>,
+    all_tree_rows: Query<&EntityTreeRow, With<Button>>,
     mut selection: ResMut<EditorSelection>,
     mut hierarchy_state: ResMut<HierarchyState>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -382,12 +635,43 @@ fn handle_tree_row_clicks(
             if ctrl {
                 // Toggle selection
                 selection.toggle(entity);
+                // Update anchor for future range selections
+                hierarchy_state.selection_anchor = Some(entity);
             } else if shift {
-                // Range selection (TODO: implement properly)
-                selection.add(entity);
+                // Range selection
+                if let Some(anchor) = hierarchy_state.selection_anchor {
+                    // Build a list of all visible entities in order
+                    let visible_entities: Vec<Entity> = all_tree_rows
+                        .iter()
+                        .map(|row| row.entity)
+                        .collect();
+
+                    // Find indices of anchor and current entity
+                    if let (Some(anchor_idx), Some(current_idx)) = (
+                        visible_entities.iter().position(|e| *e == anchor),
+                        visible_entities.iter().position(|e| *e == entity),
+                    ) {
+                        // Select all entities in the range
+                        let (start, end) = if anchor_idx <= current_idx {
+                            (anchor_idx, current_idx)
+                        } else {
+                            (current_idx, anchor_idx)
+                        };
+
+                        for i in start..=end {
+                            selection.add(visible_entities[i]);
+                        }
+                    }
+                } else {
+                    // No anchor, just add this entity
+                    selection.add(entity);
+                    hierarchy_state.selection_anchor = Some(entity);
+                }
             } else {
                 // Single selection
                 selection.select(entity);
+                // Set new anchor
+                hierarchy_state.selection_anchor = Some(entity);
 
                 // Toggle expand/collapse when clicking on entity with children
                 if hierarchy_state.expanded.contains(&entity) {
@@ -397,6 +681,216 @@ fn handle_tree_row_clicks(
                 }
             }
         }
+    }
+}
+
+/// Handle keyboard navigation in the hierarchy tree
+fn handle_hierarchy_keyboard_navigation(
+    mut commands: Commands,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    all_tree_rows: Query<&EntityTreeRow, With<Button>>,
+    mut selection: ResMut<EditorSelection>,
+    mut hierarchy_state: ResMut<HierarchyState>,
+    search_focus_query: Query<&Interaction, With<SearchInputBox>>,
+) {
+    // Don't handle navigation if search box is focused
+    for interaction in &search_focus_query {
+        if matches!(interaction, Interaction::Hovered | Interaction::Pressed) {
+            return;
+        }
+    }
+
+    // Build a list of all visible entities in order
+    let visible_entities: Vec<Entity> = all_tree_rows
+        .iter()
+        .map(|row| row.entity)
+        .collect();
+
+    if visible_entities.is_empty() {
+        return;
+    }
+
+    // Get the current primary selection
+    let current_selection = selection.primary();
+
+    // Arrow Up: Move selection up
+    if keyboard.just_pressed(KeyCode::ArrowUp) {
+        if let Some(current) = current_selection {
+            if let Some(current_idx) = visible_entities.iter().position(|e| *e == current) {
+                if current_idx > 0 {
+                    let new_selection = visible_entities[current_idx - 1];
+                    if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                        // Shift+Up: Extend selection
+                        selection.add(new_selection);
+                    } else {
+                        // Just Up: Move selection
+                        selection.select(new_selection);
+                        hierarchy_state.selection_anchor = Some(new_selection);
+                    }
+                }
+            }
+        } else if !visible_entities.is_empty() {
+            // No selection, select first entity
+            selection.select(visible_entities[0]);
+            hierarchy_state.selection_anchor = Some(visible_entities[0]);
+        }
+    }
+
+    // Arrow Down: Move selection down
+    if keyboard.just_pressed(KeyCode::ArrowDown) {
+        if let Some(current) = current_selection {
+            if let Some(current_idx) = visible_entities.iter().position(|e| *e == current) {
+                if current_idx < visible_entities.len() - 1 {
+                    let new_selection = visible_entities[current_idx + 1];
+                    if keyboard.pressed(KeyCode::ShiftLeft) || keyboard.pressed(KeyCode::ShiftRight) {
+                        // Shift+Down: Extend selection
+                        selection.add(new_selection);
+                    } else {
+                        // Just Down: Move selection
+                        selection.select(new_selection);
+                        hierarchy_state.selection_anchor = Some(new_selection);
+                    }
+                }
+            }
+        } else if !visible_entities.is_empty() {
+            // No selection, select first entity
+            selection.select(visible_entities[0]);
+            hierarchy_state.selection_anchor = Some(visible_entities[0]);
+        }
+    }
+
+    // Arrow Right: Expand selected entity
+    if keyboard.just_pressed(KeyCode::ArrowRight) {
+        if let Some(current) = current_selection {
+            hierarchy_state.expanded.insert(current);
+        }
+    }
+
+    // Arrow Left: Collapse selected entity
+    if keyboard.just_pressed(KeyCode::ArrowLeft) {
+        if let Some(current) = current_selection {
+            hierarchy_state.expanded.remove(&current);
+        }
+    }
+
+    // Enter: Toggle expand/collapse
+    if keyboard.just_pressed(KeyCode::Enter) {
+        if let Some(current) = current_selection {
+            if hierarchy_state.expanded.contains(&current) {
+                hierarchy_state.expanded.remove(&current);
+            } else {
+                hierarchy_state.expanded.insert(current);
+            }
+        }
+    }
+
+    // Delete: Delete selected entities
+    if keyboard.just_pressed(KeyCode::Delete) {
+        for entity in selection.selected().collect::<Vec<_>>() {
+            commands.entity(entity).despawn();
+        }
+        selection.clear();
+        hierarchy_state.selection_anchor = None;
+    }
+
+    // Ctrl+D: Duplicate selected entity
+    if keyboard.just_pressed(KeyCode::KeyD) &&
+       (keyboard.pressed(KeyCode::ControlLeft) || keyboard.pressed(KeyCode::ControlRight)) {
+        if let Some(current) = current_selection {
+            // TODO: Implement entity duplication
+            println!("Duplicate entity {:?}", current);
+        }
+    }
+}
+
+/// Handle drag start for tree rows (left click + drag)
+fn handle_tree_row_drag_start(
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    tree_row_query: Query<(&Interaction, &EntityTreeRow), With<Button>>,
+    mut hierarchy_state: ResMut<HierarchyState>,
+) {
+    // Start dragging when left mouse button is pressed on a tree row
+    if mouse_button.just_pressed(MouseButton::Left) {
+        for (interaction, tree_row) in &tree_row_query {
+            if matches!(interaction, Interaction::Pressed) {
+                hierarchy_state.dragging = Some(tree_row.entity);
+                break;
+            }
+        }
+    }
+}
+
+/// Update drop target during drag
+fn handle_tree_row_drag_over(
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    tree_row_query: Query<(&Interaction, &EntityTreeRow), With<Button>>,
+    mut hierarchy_state: ResMut<HierarchyState>,
+) {
+    // Only track drop target if we're currently dragging
+    if hierarchy_state.dragging.is_some() && mouse_button.pressed(MouseButton::Left) {
+        hierarchy_state.drop_target = None;
+
+        for (interaction, tree_row) in &tree_row_query {
+            if matches!(interaction, Interaction::Hovered) {
+                // Don't allow dropping on self
+                if Some(tree_row.entity) != hierarchy_state.dragging {
+                    hierarchy_state.drop_target = Some(tree_row.entity);
+                }
+                break;
+            }
+        }
+    }
+}
+
+/// Handle drop and perform reparenting
+fn handle_tree_row_drop(
+    mut commands: Commands,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    mut hierarchy_state: ResMut<HierarchyState>,
+    children_query: Query<&Children>,
+) {
+    // Perform reparenting when mouse is released
+    if mouse_button.just_released(MouseButton::Left) {
+        if let (Some(dragged), Some(target)) = (hierarchy_state.dragging, hierarchy_state.drop_target) {
+            // Check if target is not a descendant of dragged (prevent circular hierarchy)
+            let mut is_descendant = false;
+            let mut check_entity = target;
+
+            // Walk up the hierarchy to check if we'd create a cycle
+            loop {
+                if check_entity == dragged {
+                    is_descendant = true;
+                    break;
+                }
+
+                // Check if this entity has a parent
+                if let Ok(children) = children_query.get(check_entity) {
+                    // This entity has children, but we need to check its parent
+                    // We'll break here for now and implement proper parent checking later
+                    break;
+                } else {
+                    break;
+                }
+            }
+
+            if !is_descendant {
+                // Remove from old parent (if any) and add to new parent
+                commands.entity(target).add_children(&[dragged]);
+                println!("Reparented {:?} under {:?}", dragged, target);
+            } else {
+                println!("Cannot reparent: would create circular hierarchy");
+            }
+        }
+
+        // Clear drag state
+        hierarchy_state.dragging = None;
+        hierarchy_state.drop_target = None;
+    }
+
+    // Also clear if mouse button is released without a valid drop target
+    if mouse_button.just_released(MouseButton::Left) {
+        hierarchy_state.dragging = None;
+        hierarchy_state.drop_target = None;
     }
 }
 
