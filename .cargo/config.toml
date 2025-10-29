@@ -1,0 +1,11 @@
+# Cargo configuration for Bevy Editor
+
+[env]
+# Force X11 backend on Linux to avoid Wayland compositor issues in WSL2
+# This prevents "NoCompositor" panics when running in WSL2 environments
+WINIT_UNIX_BACKEND = "x11"
+
+[build]
+# Optional: Limit parallelism to avoid OOM on memory-constrained systems
+# Uncomment if needed:
+# jobs = 2

@@ -1,0 +1,23 @@
+[package]
+name = "bevy_ui_first_editor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+
+# Editor crates
+bevy_editor_core = { workspace = true }
+bevy_editor_ui = { workspace = true }
+bevy_editor_viewport = { workspace = true }
+bevy_editor_hierarchy = { workspace = true }
+bevy_editor_inspector = { workspace = true }
+bevy_editor_assets = { workspace = true }
+bevy_editor_undo = { workspace = true }
+bevy_editor_project = { workspace = true }
+
+[lints]
+workspace = true

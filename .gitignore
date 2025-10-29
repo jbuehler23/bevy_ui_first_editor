@@ -1,0 +1,8 @@
+# Rust builds
+/target
+
+# Note: .cargo/config.toml IS tracked in this project because it contains
+# important cross-platform settings (like WINIT_UNIX_BACKEND=x11 for WSL2)
+# that all developers need. If you have local overrides, use:
+# .cargo/config.local.toml (which is ignored below)
+.cargo/config.local.toml

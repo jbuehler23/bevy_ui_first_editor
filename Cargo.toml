@@ -1,0 +1,78 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/bevy_editor_core",
+    "crates/bevy_editor_ui",
+    "crates/bevy_editor_viewport",
+    "crates/bevy_editor_hierarchy",
+    "crates/bevy_editor_inspector",
+    "crates/bevy_editor_assets",
+    "crates/bevy_editor_undo",
+    "crates/bevy_editor_project",
+    "editor_app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-username/bevy_ui_first_editor"
+
+[workspace.dependencies.bevy]
+# Bevy from main branch - using default features which include everything we need
+git = "https://github.com/bevyengine/bevy.git"
+branch = "main"
+default-features = true
+features = [
+    # Asset features
+    "file_watcher",
+    "embedded_watcher",
+]
+
+[workspace.dependencies]
+
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.8"
+notify = "6.1"
+uuid = { version = "1.10", features = ["serde", "v4"] }
+
+# Editor crates
+bevy_editor_core = { path = "crates/bevy_editor_core" }
+bevy_editor_ui = { path = "crates/bevy_editor_ui" }
+bevy_editor_viewport = { path = "crates/bevy_editor_viewport" }
+bevy_editor_hierarchy = { path = "crates/bevy_editor_hierarchy" }
+bevy_editor_inspector = { path = "crates/bevy_editor_inspector" }
+bevy_editor_assets = { path = "crates/bevy_editor_assets" }
+bevy_editor_undo = { path = "crates/bevy_editor_undo" }
+bevy_editor_project = { path = "crates/bevy_editor_project" }
+
+# Logging configuration
+log = { version = "0.4", features = [
+    "max_level_debug",
+    "release_max_level_warn",
+] }
+tracing = { version = "0.1", features = [
+    "max_level_debug",
+    "release_max_level_warn",
+] }
+
+# Idiomatic Bevy code often triggers these lints
+[workspace.lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"
+
+# Enable optimization in dev profile
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Remove expensive debug assertions
+[profile.dev.package.wgpu-types]
+debug-assertions = false
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

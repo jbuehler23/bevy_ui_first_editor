@@ -1,0 +1,15 @@
+[package]
+name = "bevy_editor_assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+bevy_editor_core = { workspace = true }
+bevy_editor_ui = { workspace = true }
+notify = { workspace = true }
+serde = { workspace = true }
+
+[lints]
+workspace = true
