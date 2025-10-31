@@ -692,6 +692,7 @@ dependencies = [
  "bevy_editor_core",
  "bevy_editor_hierarchy",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

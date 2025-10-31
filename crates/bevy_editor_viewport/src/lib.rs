@@ -33,59 +33,57 @@ impl Plugin for EditorViewportPlugin {
     }
 }
 
-/// Spawn some test objects to see in the editor
+/// Spawn some test sprites for 2D scene editing
 fn spawn_test_scene(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Spawn a cube - with click observer
+    // Spawn player sprite - blue square at origin
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
-        Name::new("Cube"),
-    ))
-    .observe(on_entity_click);
-
-    // Spawn a sphere - with click observer
-    commands.spawn((
-        Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap())),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.7, 0.9))),
-        Transform::from_xyz(2.0, 0.5, 0.0),
-        Name::new("Sphere"),
-    ))
-    .observe(on_entity_click);
-
-    // Spawn a cylinder - with click observer
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(0.5, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.9, 0.3, 0.3))),
-        Transform::from_xyz(-2.0, 0.5, 0.0),
-        Name::new("Cylinder"),
-    ))
-    .observe(on_entity_click);
-
-    // Spawn a directional light
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 10000.0,
-            shadows_enabled: true,
+        Sprite {
+            color: Color::srgb(0.2, 0.5, 1.0), // Blue
+            custom_size: Some(Vec2::new(64.0, 64.0)),
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, 0.5, 0.0)),
-        Name::new("Sun"),
-    ));
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        Name::new("Player"),
+    ))
+    .observe(on_entity_click);
 
-    // Spawn ambient light as a component now
+    // Spawn enemy sprite - red square
     commands.spawn((
-        AmbientLight {
-            color: Color::WHITE,
-            brightness: 200.0,
-            affects_lightmapped_meshes: false,
+        Sprite {
+            color: Color::srgb(1.0, 0.2, 0.2), // Red
+            custom_size: Some(Vec2::new(48.0, 48.0)),
+            ..default()
         },
-        Name::new("Ambient Light"),
-    ));
+        Transform::from_xyz(150.0, 0.0, 0.0),
+        Name::new("Enemy"),
+    ))
+    .observe(on_entity_click);
+
+    // Spawn collectible sprite - yellow/gold circle
+    commands.spawn((
+        Sprite {
+            color: Color::srgb(1.0, 0.9, 0.2), // Yellow/Gold
+            custom_size: Some(Vec2::new(32.0, 32.0)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, 120.0, 0.0),
+        Name::new("Collectible"),
+    ))
+    .observe(on_entity_click);
+
+    // Spawn platform sprite - gray rectangle
+    commands.spawn((
+        Sprite {
+            color: Color::srgb(0.5, 0.5, 0.5), // Gray
+            custom_size: Some(Vec2::new(256.0, 32.0)),
+            ..default()
+        },
+        Transform::from_xyz(0.0, -100.0, 0.0),
+        Name::new("Platform"),
+    ))
+    .observe(on_entity_click);
 }
 
 /// Handle entity click events to update selection
@@ -97,84 +95,66 @@ fn on_entity_click(
     selection.select(trigger.entity);
 }
 
-/// Draw selection outline using gizmos
+/// Draw selection outline using gizmos (2D rectangles for sprites)
 fn draw_selection_outline(
     mut gizmos: Gizmos,
     selection: Res<EditorSelection>,
-    query: Query<(&Transform, Option<&Name>)>,
+    query: Query<(&Transform, Option<&Sprite>, Option<&Name>)>,
 ) {
     // Color for selection outline
     let selection_color = Color::srgb(1.0, 0.8, 0.0); // Bright yellow/orange
 
     for entity in selection.selected() {
-        // Get the transform of the selected entity
-        if let Ok((transform, name)) = query.get(entity) {
-            // Use fixed sizes for our test objects (we know what they are)
-            // Later we can compute actual bounding boxes from meshes
-            let size = if let Some(name) = name {
-                match name.as_str() {
-                    "Cube" => Vec3::new(1.0, 1.0, 1.0),
-                    "Sphere" => Vec3::new(1.0, 1.0, 1.0), // diameter
-                    "Cylinder" => Vec3::new(1.0, 1.0, 1.0), // diameter x height
-                    _ => Vec3::splat(1.0),
+        // Get the transform and sprite of the selected entity
+        if let Ok((transform, sprite, name)) = query.get(entity) {
+            // Get sprite size
+            let size = if let Some(sprite) = sprite {
+                // Use sprite's custom_size if available
+                if let Some(custom_size) = sprite.custom_size {
+                    Vec2::new(custom_size.x, custom_size.y)
+                } else {
+                    // Default size if no custom_size
+                    Vec2::new(64.0, 64.0)
                 }
             } else {
-                Vec3::splat(1.0)
+                // Fallback size for entities without sprites
+                Vec2::new(64.0, 64.0)
             };
 
-            // Scale by transform and add offset to make box slightly larger
-            let scaled_size = size * transform.scale * 1.1;
+            // Scale by transform and add offset to make rectangle slightly larger
+            let scaled_size = size * transform.scale.truncate() * 1.1;
 
-            // Draw a wireframe box around the selected entity
-            draw_oriented_box(&mut gizmos, transform.translation, transform.rotation, scaled_size, selection_color);
+            // Draw a 2D rectangle outline around the sprite
+            draw_2d_rect_outline(
+                &mut gizmos,
+                transform.translation.truncate(),
+                scaled_size,
+                selection_color
+            );
         }
     }
 }
 
-/// Helper function to draw an oriented bounding box
-fn draw_oriented_box(
+/// Helper function to draw a 2D rectangle outline
+fn draw_2d_rect_outline(
     gizmos: &mut Gizmos,
-    position: Vec3,
-    rotation: Quat,
-    size: Vec3,
+    position: Vec2,
+    size: Vec2,
     color: Color,
 ) {
     let half_size = size / 2.0;
 
-    // Define the 8 corners of the box in local space
+    // Define the 4 corners of the rectangle
     let corners = [
-        Vec3::new(-half_size.x, -half_size.y, -half_size.z),
-        Vec3::new(half_size.x, -half_size.y, -half_size.z),
-        Vec3::new(half_size.x, half_size.y, -half_size.z),
-        Vec3::new(-half_size.x, half_size.y, -half_size.z),
-        Vec3::new(-half_size.x, -half_size.y, half_size.z),
-        Vec3::new(half_size.x, -half_size.y, half_size.z),
-        Vec3::new(half_size.x, half_size.y, half_size.z),
-        Vec3::new(-half_size.x, half_size.y, half_size.z),
+        Vec2::new(position.x - half_size.x, position.y - half_size.y),
+        Vec2::new(position.x + half_size.x, position.y - half_size.y),
+        Vec2::new(position.x + half_size.x, position.y + half_size.y),
+        Vec2::new(position.x - half_size.x, position.y + half_size.y),
     ];
 
-    // Transform corners to world space
-    let world_corners: Vec<Vec3> = corners
-        .iter()
-        .map(|&corner| position + rotation * corner)
-        .collect();
-
-    // Draw the 12 edges of the box
-    // Bottom face (4 edges)
-    gizmos.line(world_corners[0], world_corners[1], color);
-    gizmos.line(world_corners[1], world_corners[2], color);
-    gizmos.line(world_corners[2], world_corners[3], color);
-    gizmos.line(world_corners[3], world_corners[0], color);
-
-    // Top face (4 edges)
-    gizmos.line(world_corners[4], world_corners[5], color);
-    gizmos.line(world_corners[5], world_corners[6], color);
-    gizmos.line(world_corners[6], world_corners[7], color);
-    gizmos.line(world_corners[7], world_corners[4], color);
-
-    // Vertical edges (4 edges)
-    gizmos.line(world_corners[0], world_corners[4], color);
-    gizmos.line(world_corners[1], world_corners[5], color);
-    gizmos.line(world_corners[2], world_corners[6], color);
-    gizmos.line(world_corners[3], world_corners[7], color);
+    // Draw the 4 edges of the rectangle
+    gizmos.line_2d(corners[0], corners[1], color);
+    gizmos.line_2d(corners[1], corners[2], color);
+    gizmos.line_2d(corners[2], corners[3], color);
+    gizmos.line_2d(corners[3], corners[0], color);
 }

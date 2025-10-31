@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-/// Grid configuration
+/// Grid configuration for 2D XY plane
 #[derive(Debug, Resource)]
 pub struct GridConfig {
     pub enabled: bool,
@@ -16,25 +16,25 @@ pub struct GridConfig {
     pub color_minor: Color,
     pub color_major: Color,
     pub color_axis_x: Color,
-    pub color_axis_z: Color,
+    pub color_axis_y: Color,
 }
 
 impl Default for GridConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            cell_size: 1.0,
-            cell_count: 50,
-            major_line_interval: 10,
+            cell_size: 50.0,  // Larger cells for 2D pixel-based coordinates
+            cell_count: 40,
+            major_line_interval: 5,
             color_minor: Color::srgba(0.2, 0.2, 0.2, 0.5),
             color_major: Color::srgba(0.4, 0.4, 0.4, 0.8),
             color_axis_x: Color::srgba(1.0, 0.3, 0.3, 0.8),
-            color_axis_z: Color::srgba(0.3, 0.3, 1.0, 0.8),
+            color_axis_y: Color::srgba(0.3, 1.0, 0.3, 0.8), // Green for Y axis
         }
     }
 }
 
-/// System to draw the grid using gizmos
+/// System to draw the 2D grid in XY plane using gizmos
 pub fn draw_grid(
     mut gizmos: Gizmos,
     config: Res<GridConfig>,
@@ -46,37 +46,37 @@ pub fn draw_grid(
     let half_count = config.cell_count / 2;
     let extent = half_count as f32 * config.cell_size;
 
-    // Draw grid lines along X axis (parallel to Z)
+    // Draw horizontal grid lines (along X axis, varying Y)
     for i in -half_count..=half_count {
         let offset = i as f32 * config.cell_size;
-        let start = Vec3::new(-extent, 0.0, offset);
-        let end = Vec3::new(extent, 0.0, offset);
+        let start = Vec2::new(-extent, offset);
+        let end = Vec2::new(extent, offset);
 
         let color = if i == 0 {
-            config.color_axis_z // Z axis
+            config.color_axis_x // X axis (horizontal center line)
         } else if i % config.major_line_interval == 0 {
             config.color_major
         } else {
             config.color_minor
         };
 
-        gizmos.line(start, end, color);
+        gizmos.line_2d(start, end, color);
     }
 
-    // Draw grid lines along Z axis (parallel to X)
+    // Draw vertical grid lines (along Y axis, varying X)
     for i in -half_count..=half_count {
         let offset = i as f32 * config.cell_size;
-        let start = Vec3::new(offset, 0.0, -extent);
-        let end = Vec3::new(offset, 0.0, extent);
+        let start = Vec2::new(offset, -extent);
+        let end = Vec2::new(offset, extent);
 
         let color = if i == 0 {
-            config.color_axis_x // X axis
+            config.color_axis_y // Y axis (vertical center line)
         } else if i % config.major_line_interval == 0 {
             config.color_major
         } else {
             config.color_minor
         };
 
-        gizmos.line(start, end, color);
+        gizmos.line_2d(start, end, color);
     }
 }

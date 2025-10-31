@@ -53,13 +53,22 @@ impl Plugin for EditorCameraPlugin {
 }
 
 fn spawn_editor_camera(mut commands: Commands) {
-    // Spawn the 3D camera for the editor viewport
+    // Spawn the 2D camera for the editor viewport
     // All components must be added together in a single spawn() to allow Bevy's
     // required components system to process everything atomically
     commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        EditorCamera::default(),
+        Camera2d,
+        Transform::from_xyz(0.0, 0.0, 100.0), // 2D camera looks down the Z axis
+        EditorCamera {
+            focus: Vec3::ZERO,
+            radius: 500.0, // Zoom level for 2D (smaller = more zoomed in)
+            yaw: 0.0,      // Not used for 2D
+            pitch: 0.0,    // Not used for 2D
+            orbit_sensitivity: 0.003,
+            pan_sensitivity: 1.0, // Higher sensitivity for 2D panning
+            zoom_sensitivity: 0.1,
+            enabled: true,
+        },
         EditorEntity, // Mark as editor entity
         Name::new("Editor Camera"), // Give it a name for debugging
     ));
@@ -134,18 +143,21 @@ fn editor_camera_zoom(
     }
 }
 
-/// Update camera transform based on orbit parameters
+/// Update camera transform for 2D (pan and zoom only)
 fn update_camera_transform(
     mut query: Query<(&EditorCamera, &mut Transform)>,
 ) {
     for (camera, mut transform) in &mut query {
-        // Calculate position from spherical coordinates
-        let x = camera.radius * camera.pitch.cos() * camera.yaw.sin();
-        let y = camera.radius * camera.pitch.sin();
-        let z = camera.radius * camera.pitch.cos() * camera.yaw.cos();
+        // For 2D camera: position at focus point, but stay on the Z axis
+        // Z distance controls zoom level (radius field is repurposed as zoom)
+        transform.translation = Vec3::new(
+            camera.focus.x,
+            camera.focus.y,
+            camera.radius, // Use radius as Z distance for 2D zoom
+        );
 
-        transform.translation = camera.focus + Vec3::new(x, y, z);
-        transform.look_at(camera.focus, Vec3::Y);
+        // Keep camera looking down the -Z axis (no rotation for 2D)
+        transform.rotation = Quat::IDENTITY;
     }
 }
 
