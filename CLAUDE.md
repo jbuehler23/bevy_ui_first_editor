@@ -290,3 +290,4 @@ When adding new features:
 - Bevy main branch: https://github.com/bevyengine/bevy (commit 4679505b)
 - Development progress: See PROGRESS.md for detailed session notes
 - Architecture overview: See README.md for high-level design
+- when it comes to a file browser, we are allowed to use RFD for this, rather than creating our own implementation - just keep this in mind

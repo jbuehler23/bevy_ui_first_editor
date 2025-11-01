@@ -3,6 +3,7 @@
 //! Provides eye icon buttons to show/hide entities and updates visual feedback.
 
 use bevy::prelude::*;
+use crate::EditorIcons;
 
 /// Marker component for visibility toggle buttons in the tree
 #[derive(Component)]
@@ -41,9 +42,10 @@ pub fn handle_visibility_toggle_clicks(
 pub fn update_tree_row_visibility_appearance(
     visibility_changed: Query<Entity, Changed<Visibility>>,
     visibility_query: Query<&Visibility>,
+    icons: Res<EditorIcons>,
     // Update eye icons
     mut toggle_buttons: Query<(&VisibilityToggleButton, &Children)>,
-    mut button_text: Query<&mut Text>,
+    mut button_images: Query<&mut ImageNode>,
     // Update entity name colors
     mut name_text: Query<(&EntityNameText, &mut TextColor)>,
 ) {
@@ -56,12 +58,16 @@ pub fn update_tree_row_visibility_appearance(
     for (toggle_button, children) in &mut toggle_buttons {
         if let Ok(visibility) = visibility_query.get(toggle_button.target_entity) {
             let is_visible = matches!(visibility, Visibility::Visible | Visibility::Inherited);
-            let eye_symbol = if is_visible { "👁" } else { "🚫" };
+            let eye_icon = if is_visible {
+                icons.eye.clone()
+            } else {
+                icons.eye_off.clone()
+            };
 
-            // Find the text child and update it
+            // Find the ImageNode child and update it
             for child in children.iter() {
-                if let Ok(mut text) = button_text.get_mut(child) {
-                    **text = eye_symbol.to_string();
+                if let Ok(mut image_node) = button_images.get_mut(child) {
+                    image_node.image = eye_icon.clone();
                 }
             }
         }

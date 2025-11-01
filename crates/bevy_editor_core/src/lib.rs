@@ -19,6 +19,13 @@ pub use selection::*;
 #[derive(Component, Default, Clone, Copy)]
 pub struct EditorEntity;
 
+/// Resource tracking which UI element has keyboard focus
+#[derive(Resource, Default)]
+pub struct UiFocus {
+    /// The currently focused UI element (if any)
+    pub focused_entity: Option<Entity>,
+}
+
 /// Core editor plugin that sets up the fundamental editor infrastructure
 pub struct EditorCorePlugin;
 
@@ -26,6 +33,7 @@ impl Plugin for EditorCorePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<EditorState>()
             .init_resource::<EditorSelection>()
+            .init_resource::<UiFocus>()
             .add_systems(Update, update_editor_state);
     }
 }

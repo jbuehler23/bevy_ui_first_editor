@@ -36,6 +36,7 @@ pub use interactions::{
 };
 
 pub use search::{
+    handle_search_focus,
     handle_search_input,
     handle_clear_search_button,
 };

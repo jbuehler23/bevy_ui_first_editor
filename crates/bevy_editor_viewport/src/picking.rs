@@ -11,6 +11,4 @@ pub struct PickingResult {
     pub distance: f32,
 }
 
-/// Component to mark entities as pickable in the editor
-#[derive(Component)]
-pub struct Pickable;
+// Note: Pickable component removed - use bevy::picking::Pickable instead

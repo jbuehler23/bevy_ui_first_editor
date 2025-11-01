@@ -78,18 +78,48 @@ pub fn handle_tree_row_clicks(
 }
 
 
-/// Handle drag start for tree rows (left click + drag)
+/// Handle drag start for tree rows (left click + drag with threshold)
 pub fn handle_tree_row_drag_start(
     mouse_button: Res<ButtonInput<MouseButton>>,
     tree_row_query: Query<(&Interaction, &EntityTreeRow), With<Button>>,
     mut hierarchy_state: ResMut<HierarchyState>,
+    windows: Query<&Window>,
 ) {
-    // Start dragging when left mouse button is pressed on a tree row
+    // Record initial mouse position when button is pressed
     if mouse_button.just_pressed(MouseButton::Left) {
-        for (interaction, tree_row) in &tree_row_query {
+        for (interaction, _tree_row) in &tree_row_query {
             if matches!(interaction, Interaction::Pressed) {
-                hierarchy_state.dragging = Some(tree_row.entity);
-                break;
+                // Get current mouse position
+                if let Ok(window) = windows.single() {
+                    if let Some(cursor_pos) = window.cursor_position() {
+                        // Store position but DON'T set dragging yet
+                        hierarchy_state.drag_start_position = Some(cursor_pos);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check if mouse has moved beyond threshold while button is held
+    const DRAG_THRESHOLD: f32 = 5.0; // pixels
+    if mouse_button.pressed(MouseButton::Left) {
+        if let Some(start_pos) = hierarchy_state.drag_start_position {
+            if let Ok(window) = windows.single() {
+                if let Some(current_pos) = window.cursor_position() {
+                    let distance = start_pos.distance(current_pos);
+
+                    // Only activate drag after threshold is exceeded
+                    if distance >= DRAG_THRESHOLD && hierarchy_state.dragging.is_none() {
+                        // Find which entity is being dragged
+                        for (interaction, tree_row) in &tree_row_query {
+                            if matches!(interaction, Interaction::Pressed | Interaction::Hovered) {
+                                hierarchy_state.dragging = Some(tree_row.entity);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -129,7 +159,7 @@ pub fn handle_tree_row_drop(
         if let (Some(dragged), Some(target)) = (hierarchy_state.dragging, hierarchy_state.drop_target) {
             // Check if target is not a descendant of dragged (prevent circular hierarchy)
             let mut is_descendant = false;
-            let mut check_entity = target;
+            let check_entity = target;
 
             // Walk up the hierarchy to check if we'd create a cycle
             loop {
@@ -157,14 +187,16 @@ pub fn handle_tree_row_drop(
             }
         }
 
-        // Clear drag state
+        // Clear ALL drag state (including start position)
         hierarchy_state.dragging = None;
         hierarchy_state.drop_target = None;
+        hierarchy_state.drag_start_position = None;
     }
 
     // Also clear if mouse button is released without a valid drop target
     if mouse_button.just_released(MouseButton::Left) {
         hierarchy_state.dragging = None;
         hierarchy_state.drop_target = None;
+        hierarchy_state.drag_start_position = None;
     }
 }

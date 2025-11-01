@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy::picking::Pickable;
 use bevy_editor_core::{EditorSelection, EditorEntity};
 use bevy_editor_hierarchy::{HierarchyState, build_entity_tree_flat, EntityTreeRow};
-use crate::{SceneTreePanel, VisibilityToggleButton, EntityNameText};
+use crate::{SceneTreePanel, VisibilityToggleButton, EntityNameText, EditorIcons};
 
 /// Update the Scene Tree panel with the current entity hierarchy
 pub fn update_scene_tree_panel(
@@ -15,19 +15,32 @@ pub fn update_scene_tree_panel(
     scene_tree_query: Query<Entity, With<SceneTreePanel>>,
     hierarchy_state: Res<HierarchyState>,
     selection: Res<EditorSelection>,
+    icons: Res<EditorIcons>,
     world: &World,
     all_entities: Query<(Entity, Option<&Name>)>,
     children_query: Query<&Children>,
     entity_row_query: Query<Entity, With<EntityTreeRow>>,
+    mut needs_initial_update: Local<bool>,
 ) {
-    // Only update if hierarchy state or selection changed
-    if !hierarchy_state.is_changed() && !selection.is_changed() {
-        return;
-    }
-
     let Ok(panel_entity) = scene_tree_query.single() else {
         return;
     };
+
+    // Check if panel is empty (needs initial population)
+    let is_empty = children_query
+        .get(panel_entity)
+        .map(|children| !children.iter().any(|c| entity_row_query.contains(c)))
+        .unwrap_or(true);
+
+    // Only update if hierarchy state or selection changed, OR if panel is empty
+    if !is_empty && !hierarchy_state.is_changed() && !selection.is_changed() {
+        return;
+    }
+
+    // Mark that we've done the initial update
+    if is_empty {
+        *needs_initial_update = false;
+    }
 
     // Collect all entities with their names
     let entities_data: Vec<(Entity, Option<String>)> = all_entities
@@ -88,7 +101,11 @@ pub fn update_scene_tree_panel(
                     .map(|v| matches!(v, Visibility::Visible | Visibility::Inherited))
                     .unwrap_or(true);
 
-                let eye_symbol = if is_visible { "👁" } else { "🚫" };
+                let eye_icon = if is_visible {
+                    icons.eye.clone()
+                } else {
+                    icons.eye_off.clone()
+                };
 
                 row.spawn((
                     Button,
@@ -111,12 +128,12 @@ pub fn update_scene_tree_panel(
                 ))
                 .with_children(|button| {
                     button.spawn((
-                        Text::new(eye_symbol),
-                        TextFont {
-                            font_size: 14.0,
+                        ImageNode::new(eye_icon),
+                        Node {
+                            width: Val::Px(16.0),
+                            height: Val::Px(16.0),
                             ..default()
                         },
-                        TextColor(Color::srgb(0.7, 0.7, 0.7)),
                     ));
                 });
 

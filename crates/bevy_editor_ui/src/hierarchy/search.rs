@@ -3,25 +3,60 @@
 //! Provides a reusable search box with text input and clear button.
 
 use bevy::prelude::*;
+use bevy_editor_core::UiFocus;
 use crate::{HierarchyState, SearchInputBox, SearchInputText, ClearSearchButton};
+
+/// Manage focus for the search input box
+pub fn handle_search_focus(
+    search_box_query: Query<(Entity, &Interaction), (With<SearchInputBox>, Changed<Interaction>)>,
+    mut ui_focus: ResMut<UiFocus>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+) {
+    // Check if search box was clicked
+    for (entity, interaction) in &search_box_query {
+        if *interaction == Interaction::Pressed {
+            ui_focus.focused_entity = Some(entity);
+        }
+    }
+
+    // Clear focus if clicking outside (simplified - clicking anywhere else)
+    if mouse_button.just_pressed(MouseButton::Left) {
+        let mut clicked_search = false;
+        for (_, interaction) in &search_box_query {
+            if *interaction == Interaction::Pressed {
+                clicked_search = true;
+            }
+        }
+        if !clicked_search {
+            // Only clear if the search box was previously focused
+            if let Some(focused) = ui_focus.focused_entity {
+                if search_box_query.get(focused).is_ok() {
+                    ui_focus.focused_entity = None;
+                }
+            }
+        }
+    }
+}
 
 /// Handle keyboard input for search box
 pub fn handle_search_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut char_events: MessageReader<bevy::input::keyboard::KeyboardInput>,
-    search_box_query: Query<&Interaction, (With<SearchInputBox>, Changed<Interaction>)>,
+    ui_focus: Res<UiFocus>,
+    search_box_query: Query<Entity, With<SearchInputBox>>,
     mut hierarchy_state: ResMut<HierarchyState>,
     mut search_text_query: Query<&mut Text, With<SearchInputText>>,
 ) {
-    // Check if search box was clicked (becomes focused)
-    let mut _is_focused = false;
-    for interaction in &search_box_query {
-        if *interaction == Interaction::Pressed {
-            _is_focused = true;
-        }
+    // Only handle input if search box has focus
+    let Ok(search_box_entity) = search_box_query.single() else {
+        return;
+    };
+    let is_focused = ui_focus.focused_entity == Some(search_box_entity);
+
+    if !is_focused {
+        return;
     }
 
-    // Simple approach: always capture input when user types (basic implementation)
     // Handle backspace
     if keyboard.just_pressed(KeyCode::Backspace) {
         hierarchy_state.search_filter.pop();

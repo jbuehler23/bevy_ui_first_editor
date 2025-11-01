@@ -19,6 +19,8 @@ pub struct HierarchyState {
     pub dragging: Option<Entity>,
     /// Entity that the dragged entity is currently hovering over (drop target)
     pub drop_target: Option<Entity>,
+    /// Mouse position when drag started (for threshold detection)
+    pub drag_start_position: Option<Vec2>,
 }
 
 /// Component marking a UI node that represents an entity in the hierarchy tree

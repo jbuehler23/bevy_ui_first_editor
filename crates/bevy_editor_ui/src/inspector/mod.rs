@@ -8,4 +8,7 @@ mod transform_editor;
 
 // Re-export public items
 pub use panel::{InspectorPanel, update_inspector_panel};
-pub use transform_editor::{TransformField, TransformEditor, TransformEditState};
+pub use transform_editor::{
+    TransformField, TransformEditor, TransformEditState,
+    handle_transform_editor_click, handle_transform_edit_input, update_transform_editor_display,
+};

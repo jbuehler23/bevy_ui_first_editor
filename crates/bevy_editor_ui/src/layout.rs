@@ -10,6 +10,7 @@ use crate::{
     PanelMarker, SceneTreePanel,
     SearchInputBox, SearchInputText, ClearSearchButton,
     InspectorPanel,
+    EditorIcons,
 };
 
 /// Set up the fixed editor UI layout
@@ -19,7 +20,7 @@ use crate::{
 /// - Right Top: Scene Tree panel with search
 /// - Right Bottom: Inspector panel
 /// - Bottom: Asset Browser panel (full width)
-pub fn setup_editor_ui(mut commands: Commands) {
+pub fn setup_editor_ui(mut commands: Commands, icons: Res<EditorIcons>) {
     // Root container - Column layout for top content + bottom asset browser
     // CRITICAL: Pickable with should_block_lower: false allows clicks through to 3D viewport
     commands
@@ -32,7 +33,7 @@ pub fn setup_editor_ui(mut commands: Commands) {
             },
             Pickable {
                 should_block_lower: false,  // Let clicks through to 3D scene
-                is_hoverable: true,          // Panel can still respond to interactions
+                is_hoverable: false,         // Container should not be hoverable
             },
             EditorEntity, // Mark as editor entity
         ))
@@ -48,50 +49,19 @@ pub fn setup_editor_ui(mut commands: Commands) {
                 },
                 Pickable {
                     should_block_lower: false,
-                    is_hoverable: true,
+                    is_hoverable: false,  // Container should not be hoverable
                 },
             ))
             .with_children(|content_row| {
-                // Viewport area (center/left) - no UI nodes, allows 3D picking
-                // This transparent spacer ensures the 3D scene is visible and clickable
+                // Scene Tree panel (left side)
                 content_row.spawn((
-                    Node {
-                        width: Val::Auto,
-                        height: Val::Percent(100.0),
-                        flex_grow: 1.0,
-                        ..default()
-                    },
-                    BackgroundColor(Color::NONE),
-                    Pickable {
-                        should_block_lower: false,
-                        is_hoverable: false,  // Spacer doesn't need interaction
-                    },
-                ));
-
-                // Right sidebar - contains Scene Tree and Inspector stacked vertically
-                content_row
-                    .spawn((
-                        Node {
-                            width: Val::Px(350.0),
-                            height: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Column,
-                            ..default()
-                        },
-                        Pickable {
-                            should_block_lower: false,
-                            is_hoverable: true,
-                        },
-                    ))
-                    .with_children(|sidebar| {
-                        // Scene Tree panel (top right)
-                        sidebar.spawn((
                             Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Auto,
-                                flex_grow: 1.0,
+                                width: Val::Px(350.0), // Fixed width for left panel
+                                height: Val::Percent(100.0),
                                 border: UiRect::all(Val::Px(1.0)),
                                 padding: UiRect::all(Val::Px(8.0)),
                                 flex_direction: FlexDirection::Column,
+                                overflow: Overflow::clip(), // Clip content that exceeds bounds
                                 ..default()
                             },
                             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -103,11 +73,10 @@ pub fn setup_editor_ui(mut commands: Commands) {
                                 should_block_lower: false,
                                 is_hoverable: true,
                             },
-                            SceneTreePanel,  // Marker for query
                         ))
-                        .with_children(|panel| {
+                        .with_children(|panel_wrapper| {
                             // Search input row
-                            panel.spawn((
+                            panel_wrapper.spawn((
                                 Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Px(28.0),
@@ -174,18 +143,18 @@ pub fn setup_editor_ui(mut commands: Commands) {
                                 ))
                                 .with_children(|button| {
                                     button.spawn((
-                                        Text::new("✕"),
-                                        TextFont {
-                                            font_size: 14.0,
+                                        ImageNode::new(icons.x.clone()),
+                                        Node {
+                                            width: Val::Px(12.0),
+                                            height: Val::Px(12.0),
                                             ..default()
                                         },
-                                        TextColor(Color::srgb(0.7, 0.7, 0.7)),
                                     ));
                                 });
                             });
 
                             // Panel title
-                            panel.spawn((
+                            panel_wrapper.spawn((
                                 Text::new("Scene Tree"),
                                 TextFont {
                                     font_size: 14.0,
@@ -197,14 +166,48 @@ pub fn setup_editor_ui(mut commands: Commands) {
                                     ..default()
                                 },
                             ));
+
+                            // Scrollable content area for hierarchy
+                            panel_wrapper.spawn((
+                                Node {
+                                    width: Val::Percent(100.0),
+                                    height: Val::Percent(0.0), // Start at 0, grow to fill parent
+                                    flex_grow: 1.0,
+                                    flex_direction: FlexDirection::Column,
+                                    overflow: Overflow::scroll_y(), // Scrollable!
+                                    ..default()
+                                },
+                                ScrollPosition(Vec2::ZERO), // Track scroll position
+                                BackgroundColor(Color::NONE), // Transparent background
+                                Pickable {
+                                    should_block_lower: false,
+                                    is_hoverable: true,  // Needs to be hoverable for scroll detection
+                                },
+                                SceneTreePanel,  // Marker for hierarchy update system
+                                EditorEntity,
+                            ));
                         });
 
-                        // Inspector panel (bottom right)
-                        sidebar.spawn((
+                // Viewport area (middle) - grows to fill available space
+                content_row.spawn((
+                    Node {
+                        width: Val::Auto,
+                        height: Val::Percent(100.0),
+                        flex_grow: 1.0,
+                        ..default()
+                    },
+                    BackgroundColor(Color::NONE),
+                    Pickable {
+                        should_block_lower: false,
+                        is_hoverable: false,  // Spacer doesn't need interaction
+                    },
+                ));
+
+                // Inspector panel (right side)
+                content_row.spawn((
                             Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Auto,
-                                flex_grow: 1.0,
+                                width: Val::Px(350.0), // Fixed width for right panel
+                                height: Val::Percent(100.0),
                                 border: UiRect::all(Val::Px(1.0)),
                                 padding: UiRect::all(Val::Px(8.0)),
                                 flex_direction: FlexDirection::Column,
@@ -239,17 +242,22 @@ pub fn setup_editor_ui(mut commands: Commands) {
                             panel.spawn((
                                 Node {
                                     width: Val::Percent(100.0),
-                                    height: Val::Auto,
+                                    height: Val::Percent(0.0), // Start at 0, grow to fill parent
                                     flex_grow: 1.0,
                                     flex_direction: FlexDirection::Column,
                                     overflow: Overflow::scroll_y(),
                                     ..default()
                                 },
+                                ScrollPosition(Vec2::ZERO), // Track scroll position
+                                BackgroundColor(Color::NONE), // Transparent background
+                                Pickable {
+                                    should_block_lower: false,
+                                    is_hoverable: true,  // Needs to be hoverable for scroll detection
+                                },
                                 InspectorPanel,
                                 EditorEntity,
                             ));
                         });
-                    });
             });
 
             // Asset Browser panel (bottom, full width)

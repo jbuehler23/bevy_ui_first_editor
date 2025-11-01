@@ -72,14 +72,28 @@ fn handle_save_scene(world: &mut World) {
     // Build DynamicScene from world, excluding editor entities
     let mut builder = DynamicSceneBuilder::from_world(world);
 
-    // Filter out entities with EditorEntity component (UI, camera, etc.)
-    builder = builder.deny_all_resources(); // Don't save resources
+    // Don't save resources
+    builder = builder.deny_all_resources();
 
     // Collect game entities (non-editor entities)
-    let game_entities: Vec<Entity> = world.iter_entities()
-        .filter(|entity_ref| !entity_ref.contains::<EditorEntity>())
-        .map(|entity_ref| entity_ref.id())
-        .collect();
+    // Note: Explicitly filter out EditorEntity to avoid saving UI, camera, etc.
+    let mut game_entities = Vec::new();
+
+    for entity_ref in world.iter_entities() {
+        // Skip entities with EditorEntity marker (includes camera, UI, etc.)
+        if entity_ref.contains::<EditorEntity>() {
+            continue;
+        }
+
+        // Double-check: Skip Camera2d entities (additional safety check)
+        if entity_ref.contains::<Camera2d>() {
+            continue;
+        }
+
+        game_entities.push(entity_ref.id());
+    }
+
+    info!("💾 Saving {} game entities to scene", game_entities.len());
 
     let scene = builder.extract_entities(game_entities.iter().copied()).build();
 
