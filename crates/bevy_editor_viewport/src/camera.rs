@@ -58,14 +58,22 @@ fn spawn_editor_camera(mut commands: Commands) {
     // required components system to process everything atomically
     commands.spawn((
         Camera2d,
-        Transform::from_xyz(0.0, 0.0, 100.0), // 2D camera looks down the Z axis
+        // For 2D in Bevy, camera should be at Z=999.9 (or any positive Z > sprites)
+        // This is the default for 2D cameras - sprites are at Z=0
+        Transform::from_xyz(0.0, 0.0, 999.9),
+        Projection::from(OrthographicProjection {
+            // Start with a good zoom level - this controls how much of the world is visible
+            // Smaller values = more zoomed in
+            scale: 1.0,
+            ..OrthographicProjection::default_2d()
+        }),
         EditorCamera {
             focus: Vec3::ZERO,
-            radius: 500.0, // Zoom level for 2D (smaller = more zoomed in)
-            yaw: 0.0,      // Not used for 2D
-            pitch: 0.0,    // Not used for 2D
+            radius: 1.0, // For 2D, we'll use this as the zoom scale (1.0 = normal, 0.5 = zoomed in)
+            yaw: 0.0,    // Not used for 2D
+            pitch: 0.0,  // Not used for 2D
             orbit_sensitivity: 0.003,
-            pan_sensitivity: 1.0, // Higher sensitivity for 2D panning
+            pan_sensitivity: 1.0, // Sensitivity for panning
             zoom_sensitivity: 0.1,
             enabled: true,
         },
@@ -79,8 +87,19 @@ fn editor_camera_orbit(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut motion_events: MessageReader<MouseMotion>,
     mut query: Query<&mut EditorCamera>,
+    ui_query: Query<&Interaction>,
 ) {
     if !mouse_button.pressed(MouseButton::Right) {
+        return;
+    }
+
+    // Check if mouse is over any UI element
+    let mouse_over_ui = ui_query.iter().any(|interaction| {
+        matches!(interaction, Interaction::Hovered | Interaction::Pressed)
+    });
+
+    // Don't process camera orbit if mouse is over UI
+    if mouse_over_ui {
         return;
     }
 
@@ -104,8 +123,19 @@ fn editor_camera_pan(
     mouse_button: Res<ButtonInput<MouseButton>>,
     mut motion_events: MessageReader<MouseMotion>,
     mut query: Query<(&mut EditorCamera, &Transform)>,
+    ui_query: Query<&Interaction>,
 ) {
     if !mouse_button.pressed(MouseButton::Middle) {
+        return;
+    }
+
+    // Check if mouse is over any UI element
+    let mouse_over_ui = ui_query.iter().any(|interaction| {
+        matches!(interaction, Interaction::Hovered | Interaction::Pressed)
+    });
+
+    // Don't process camera pan if mouse is over UI
+    if mouse_over_ui {
         return;
     }
 
@@ -126,38 +156,58 @@ fn editor_camera_pan(
     }
 }
 
-/// Handle zoom controls (mouse wheel)
+/// Handle zoom controls (mouse wheel) - for 2D, this changes orthographic scale
 fn editor_camera_zoom(
     mut scroll_events: MessageReader<MouseWheel>,
     mut query: Query<&mut EditorCamera>,
+    ui_query: Query<&Interaction>,
 ) {
+    // Check if mouse is over any UI element
+    let mouse_over_ui = ui_query.iter().any(|interaction| {
+        matches!(interaction, Interaction::Hovered | Interaction::Pressed)
+    });
+
+    // Don't process camera zoom if mouse is over UI
+    if mouse_over_ui {
+        return;
+    }
+
     for mut camera in &mut query {
         if !camera.enabled {
             continue;
         }
 
         for event in scroll_events.read() {
+            // For 2D: radius is the orthographic scale
+            // Negative Y scroll = zoom out (increase scale)
+            // Positive Y scroll = zoom in (decrease scale)
             camera.radius -= event.y * camera.zoom_sensitivity * camera.radius * 0.1;
-            camera.radius = camera.radius.clamp(0.1, 1000.0);
+            // Clamp zoom: 0.1 = very zoomed in, 10.0 = very zoomed out
+            camera.radius = camera.radius.clamp(0.1, 10.0);
         }
     }
 }
 
-/// Update camera transform for 2D (pan and zoom only)
+/// Update camera transform for 2D (pan and zoom via projection scale)
 fn update_camera_transform(
-    mut query: Query<(&EditorCamera, &mut Transform)>,
+    mut query: Query<(&EditorCamera, &mut Transform, &mut Projection)>,
 ) {
-    for (camera, mut transform) in &mut query {
-        // For 2D camera: position at focus point, but stay on the Z axis
-        // Z distance controls zoom level (radius field is repurposed as zoom)
+    for (camera, mut transform, mut projection) in &mut query {
+        // For 2D camera: position at focus point
         transform.translation = Vec3::new(
             camera.focus.x,
             camera.focus.y,
-            camera.radius, // Use radius as Z distance for 2D zoom
+            999.9, // Keep Z at standard 2D camera position
         );
 
         // Keep camera looking down the -Z axis (no rotation for 2D)
         transform.rotation = Quat::IDENTITY;
+
+        // Update orthographic projection scale for zoom
+        // radius field is repurposed as zoom scale for 2D
+        if let Projection::Orthographic(ortho) = projection.as_mut() {
+            ortho.scale = camera.radius;
+        }
     }
 }
 
