@@ -185,7 +185,8 @@ pub fn setup_editor_ui(mut commands: Commands, icons: Res<EditorIcons>) {
                                 },
                                 SceneTreePanel,  // Marker for hierarchy update system
                                 EditorEntity,
-                            ));
+                            ))
+                            .observe(crate::scroll::on_scroll_handler);
                         });
 
                 // Viewport area (middle) - grows to fill available space
@@ -256,7 +257,8 @@ pub fn setup_editor_ui(mut commands: Commands, icons: Res<EditorIcons>) {
                                 },
                                 InspectorPanel,
                                 EditorEntity,
-                            ));
+                            ))
+                            .observe(crate::scroll::on_scroll_handler);
                         });
             });
 

@@ -186,3 +186,64 @@ pub fn update_scene_tree_panel(
         }
     });
 }
+
+/// Auto-scroll the scene tree to show the selected entity
+pub fn auto_scroll_to_selection(
+    selection: Res<EditorSelection>,
+    scene_tree_query: Query<(Entity, &ScrollPosition, &Children), With<SceneTreePanel>>,
+    entity_row_query: Query<&EntityTreeRow>,
+    node_query: Query<&ComputedNode>,
+    mut commands: Commands,
+) {
+    // Only scroll when selection changes
+    if !selection.is_changed() {
+        return;
+    }
+
+    let Ok((panel_entity, scroll_pos, panel_children)) = scene_tree_query.single() else {
+        return;
+    };
+
+    // Get the first selected entity (if any)
+    let Some(selected_entity) = selection.selected().next() else {
+        return;
+    };
+
+    // Find the selected entity's row index in the panel's children
+    let mut selected_row_index = None;
+
+    for (index, child_entity) in panel_children.iter().enumerate() {
+        if let Ok(tree_row) = entity_row_query.get(child_entity) {
+            if tree_row.entity == selected_entity {
+                selected_row_index = Some(index);
+                break;
+            }
+        }
+    }
+
+    let Some(row_index) = selected_row_index else {
+        return; // Selected entity not found in tree (might be filtered)
+    };
+
+    // Get panel height to calculate scroll bounds
+    let Ok(panel_computed) = node_query.get(panel_entity) else {
+        return;
+    };
+
+    let panel_height = panel_computed.size().y;
+    let row_height = 24.0;
+
+    // Calculate selected row's Y position (rows are stacked vertically)
+    let selected_row_position = row_index as f32 * row_height;
+
+    // Calculate ideal scroll position to center the row in view
+    let ideal_scroll_y = selected_row_position - (panel_height / 2.0) + (row_height / 2.0);
+
+    // Clamp scroll to valid range
+    let new_scroll_y = ideal_scroll_y.max(0.0);
+
+    // Update scroll position if it changed significantly
+    if (new_scroll_y - scroll_pos.0.y).abs() > 0.1 {
+        commands.entity(panel_entity).insert(ScrollPosition(Vec2::new(0.0, new_scroll_y)));
+    }
+}

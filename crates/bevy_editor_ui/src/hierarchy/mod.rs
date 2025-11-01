@@ -43,4 +43,5 @@ pub use search::{
 
 pub use panel::{
     update_scene_tree_panel,
+    auto_scroll_to_selection,
 };

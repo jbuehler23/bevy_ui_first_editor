@@ -99,6 +99,7 @@ impl Plugin for EditorUiPlugin {
                 hierarchy::close_context_menu_on_click_outside,
                 hierarchy::update_scene_tree_panel,
                 hierarchy::update_tree_row_visibility_appearance,
+                hierarchy::auto_scroll_to_selection,
             ))
             // Inspector systems
             .add_systems(Update, (

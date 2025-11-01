@@ -62,6 +62,9 @@ fn infer_entity_name(world: &World, entity: Entity) -> String {
     if entity_ref.contains::<Mesh3d>() {
         return format!("Mesh ({})", entity.index());
     }
+    if entity_ref.contains::<Sprite>() {
+        return format!("Sprite ({})", entity.index());
+    }
 
     // Fallback to just the entity ID
     format!("Entity ({})", entity.index())
@@ -83,7 +86,24 @@ pub fn build_entity_tree_flat(
         .iter()
         .filter(|(entity, _)| {
             // Must not have a parent AND must not be an editor entity
-            world.get::<ChildOf>(*entity).is_none() && world.get::<EditorEntity>(*entity).is_none()
+            if world.get::<ChildOf>(*entity).is_some() || world.get::<EditorEntity>(*entity).is_some() {
+                return false;
+            }
+
+            // Filter out entities that are clearly internal/system entities
+            let entity_ref = world.entity(*entity);
+
+            // Keep entities with these "scene" components
+            let is_scene_entity = entity_ref.contains::<Sprite>()
+                || entity_ref.contains::<Mesh3d>()
+                || entity_ref.contains::<DirectionalLight>()
+                || entity_ref.contains::<Camera2d>()
+                || entity_ref.contains::<Camera3d>();
+
+            // Keep entities with a Name component (user-named entities)
+            let has_name = entity_ref.contains::<Name>();
+
+            is_scene_entity || has_name
         })
         .map(|(entity, name)| {
             let display_name = name.clone().unwrap_or_else(|| infer_entity_name(world, *entity));
@@ -146,8 +166,24 @@ fn add_entity_and_children(
         if let Some(children) = children {
             let mut child_data: Vec<(Entity, String)> = children
                 .iter()
-                // Filter out editor entities from children
-                .filter(|child_entity| world.get::<EditorEntity>(*child_entity).is_none())
+                // Filter out editor entities and internal system entities from children
+                .filter(|child_entity| {
+                    if world.get::<EditorEntity>(*child_entity).is_some() {
+                        return false;
+                    }
+
+                    // Apply same scene entity filter as roots
+                    let entity_ref = world.entity(*child_entity);
+                    let is_scene_entity = entity_ref.contains::<Sprite>()
+                        || entity_ref.contains::<Mesh3d>()
+                        || entity_ref.contains::<DirectionalLight>()
+                        || entity_ref.contains::<Camera2d>()
+                        || entity_ref.contains::<Camera3d>();
+
+                    let has_name = entity_ref.contains::<Name>();
+
+                    is_scene_entity || has_name
+                })
                 .map(|child_entity| {
                     let child_name = world
                         .get::<Name>(child_entity)
