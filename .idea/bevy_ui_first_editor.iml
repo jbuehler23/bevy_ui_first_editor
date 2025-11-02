@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_assets/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_hierarchy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_inspector/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_project/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_ui/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_undo/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_editor_viewport/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/editor_app/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
