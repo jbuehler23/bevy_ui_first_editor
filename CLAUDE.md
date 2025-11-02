@@ -291,3 +291,4 @@ When adding new features:
 - Development progress: See PROGRESS.md for detailed session notes
 - Architecture overview: See README.md for high-level design
 - when it comes to a file browser, we are allowed to use RFD for this, rather than creating our own implementation - just keep this in mind
+- you should always check to see what feathers widgets exist already in bevy_feathers

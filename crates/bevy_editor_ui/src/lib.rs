@@ -107,10 +107,14 @@ impl Plugin for EditorUiPlugin {
                 inspector::handle_transform_editor_click,
                 inspector::handle_transform_edit_input,
                 inspector::update_transform_editor_display,
+                inspector::handle_texture_button,
+                inspector::apply_pending_texture,
             ))
             // Scroll handling
             .add_systems(Update, scroll::send_scroll_events)
-            .add_observer(scroll::on_scroll_handler);
+            .add_observer(scroll::on_scroll_handler)
+            // Initialize sprite editor resource
+            .init_resource::<inspector::PendingTextureSelection>();
     }
 }
 

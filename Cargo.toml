@@ -27,6 +27,8 @@ features = [
     # Asset features
     "file_watcher",
     "embedded_watcher",
+    # Experimental feathers UI toolkit
+    "experimental_bevy_feathers",
 ]
 
 [workspace.dependencies]
@@ -36,6 +38,7 @@ serde = { version = "1.0", features = ["derive"] }
 ron = "0.8"
 notify = "6.1"
 uuid = { version = "1.10", features = ["serde", "v4"] }
+rfd = "0.15"
 
 # Editor crates
 bevy_editor_core = { path = "crates/bevy_editor_core" }

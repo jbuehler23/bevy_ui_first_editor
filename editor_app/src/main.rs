@@ -2,6 +2,7 @@
 //!
 //! A modular, plugin-based game editor built entirely with Bevy and bevy_ui.
 
+use bevy::feathers::FeathersPlugins;
 use bevy::picking::mesh_picking::MeshPickingPlugin;
 use bevy::prelude::*;
 
@@ -25,6 +26,8 @@ fn main() -> AppExit {
             }),
             ..default()
         }))
+        // Add feathers UI toolkit
+        .add_plugins(FeathersPlugins)
         // Add mesh picking backend for entity selection
         // Note: DefaultPlugins in Bevy main now includes DefaultPickingPlugins
         .add_plugins(MeshPickingPlugin)
